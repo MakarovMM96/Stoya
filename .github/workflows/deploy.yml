@@ -1,20 +1,46 @@
+# .github/workflows/deploy.yml
 name: Deploy to GitHub Pages
 
 on:
   push:
     branches: ["main"]
+  workflow_dispatch:  # позволяет запускать вручную из UI
+
+# Разрешаем параллельные запуски, но отменяем устаревшие
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # обязательно для gh-pages через GITHUB_TOKEN
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm ci
-      - run: npm run build
-      - uses: peaceiris/actions-gh-pages@v3
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+        env:
+          # Если ваше приложение НЕ требует GEMINI_API_KEY на этапе сборки — можно убрать
+          # Но если используется в компонентах — добавьте секрет в GitHub Settings → Secrets
+          # GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
+          # Опционально: если захотите кастомное сообщение коммита
+          # commit_message: "Deploy Stoya site ${{ github.sha }}"
